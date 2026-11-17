@@ -1,42 +1,38 @@
 workflows:
-  android-debug:
-    name: Android Debug Build
-    max_build_duration: 60
+  android-apk:
+    name: NetQueue Android APK
+    max_build_duration: 30
     instance_type: mac_mini_m2
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
     environment:
       flutter: stable
-      vars:
-        PACKAGE_NAME: "com.example.netqueue"
+    cache:
+      cache_paths:
+        - $FLUTTER_ROOT/.pub-cache
+        - $HOME/.gradle/caches
     scripts:
-      - name: Get Flutter packages
+      - name: Validar projeto Flutter
         script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          test -f pubspec.yaml
+          flutter --version
+      - name: Pacotes Flutter
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
           flutter pub get
-      - name: Build APK (debug)
+      - name: APK release
         script: |
-          flutter build apk --debug
-    artifacts:
-      - build/**/outputs/**/*.apk
-      - build/**/outputs/**/mapping.txt
-    publishing:
-      email:
-        recipients:
-          - ricardo@example.com
-        notify:
-          success: true
-          failure: true
-
-  android-release:
-    name: Android Release APK
-    max_build_duration: 60
-    instance_type: mac_mini_m2
-    environment:
-      flutter: stable
-    scripts:
-      - name: Get Flutter packages
-        script: |
-          flutter pub get
-      - name: Build APK (release)
-        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
           flutter build apk --release
+          ls -lh build/app/outputs/flutter-apk/app-release.apk
     artifacts:
-      - build/**/outputs/**/*.apk
+      - build/app/outputs/flutter-apk/*.apk
