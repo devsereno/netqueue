@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_device_apps/flutter_device_apps.dart';
 import '../services/connectivity_service.dart';
+import '../services/vpn_service.dart';
 
 class ControlOverlay extends StatefulWidget {
   const ControlOverlay({super.key});
@@ -16,11 +17,17 @@ class _ControlOverlayState extends State<ControlOverlay> {
   double progress = 0.0;
   Timer? _timer;
   bool loading = true;
+  bool vpnReady = false;
 
   @override
   void initState() {
     super.initState();
-    _loadApps();
+    _init();
+  }
+
+  Future<void> _init() async {
+    vpnReady = await VpnController.prepare();
+    await _loadApps();
   }
 
   Future<void> _loadApps() async {
@@ -31,10 +38,22 @@ class _ControlOverlayState extends State<ControlOverlay> {
     );
     list.shuffle();
     setState(() {
-      apps = list.take(6).toList();
+      apps = list.take(8).toList();
       loading = false;
     });
+    if (apps.isNotEmpty) {
+      await _updateVpnForCurrent();
+    }
     _startProgress();
+  }
+
+  Future<void> _updateVpnForCurrent() async {
+    if (!vpnReady || apps.isEmpty) return;
+    final current = apps[currentIndex];
+    final pkg = current.packageName;
+    if (pkg != null) {
+      await VpnController.start([pkg]);
+    }
   }
 
   void _startProgress() {
@@ -53,20 +72,22 @@ class _ControlOverlayState extends State<ControlOverlay> {
     });
   }
 
-  void _nextApp() {
+  Future<void> _nextApp() async {
     if (!mounted) return;
     if (currentIndex < apps.length - 1) {
       setState(() {
         currentIndex++;
         progress = 0.0;
       });
+      await _updateVpnForCurrent();
       _startProgress();
     } else {
-      _finish();
+      await _finish();
     }
   }
 
-  void _finish() {
+  Future<void> _finish() async {
+    await VpnController.stop();
     ConnectivityService.markOnlineHandled();
     if (mounted) Navigator.of(context).pop();
   }
@@ -74,6 +95,7 @@ class _ControlOverlayState extends State<ControlOverlay> {
   @override
   void dispose() {
     _timer?.cancel();
+    VpnController.stop();
     super.dispose();
   }
 
@@ -116,7 +138,10 @@ class _ControlOverlayState extends State<ControlOverlay> {
                 style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              const Text('Liberando acesso à rede...', style: TextStyle(color: Colors.white70)),
+              Text(
+                vpnReady ? 'Liberando acesso à rede...' : 'Controle visual (VPN não autorizada)',
+                style: const TextStyle(color: Colors.white70),
+              ),
               const SizedBox(height: 32),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 48),
