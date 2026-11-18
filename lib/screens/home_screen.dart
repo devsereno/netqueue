@@ -1,5 +1,5 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../services/connectivity_service.dart';
 import 'control_overlay.dart';
 import 'settings_screen.dart';
@@ -14,11 +14,19 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   String status = 'Monitorando conexão...';
   bool controlActive = false;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _checkStatus();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) => _checkStatus());
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _checkStatus() async {
@@ -55,8 +63,23 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  String _formatDuration(Duration d) {
+    if (d.inHours > 0) {
+      return '${d.inHours}h ${d.inMinutes.remainder(60)}min';
+    }
+    return '${d.inMinutes}min ${d.inSeconds.remainder(60)}s';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isTest = ConnectivityService.isTestModeActive;
+    final offline = ConnectivityService.currentOfflineDuration;
+    final required = ConnectivityService.requiredOfflineDuration;
+    final progress = required.inSeconds > 0
+        ? (offline.inSeconds / required.inSeconds).clamp(0.0, 1.0)
+        : 0.0;
+    final reached = offline >= required;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('NetQueue'),
@@ -66,7 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const SettingsScreen()),
-            ),
+            ).then((_) => _checkStatus()),
           ),
         ],
       ),
@@ -75,8 +98,43 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isTest ? Colors.orange : Colors.blue,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    isTest ? 'MODO TESTE' : 'MODO NORMAL',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
             Text(status, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Status do monitoramento', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    Text('Tempo offline acumulado: ${_formatDuration(offline)}'),
+                    Text('Tempo necessário: ${_formatDuration(required)}'),
+                    const SizedBox(height: 8),
+                    LinearProgressIndicator(value: progress),
+                    const SizedBox(height: 8),
+                    Text(reached ? 'Período atingido. Aguardando internet.' : 'Aguardando período mínimo...'),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             const Text(
               'Este app monitora quando a internet fica desligada por um tempo longo. '
               'Quando você liga a internet de novo, ele pode criar uma fila controlada '
