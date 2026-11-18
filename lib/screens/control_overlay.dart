@@ -106,13 +106,13 @@ class _ControlOverlayState extends State<ControlOverlay> {
             ),
             const Spacer(),
             if (app != null) ...[
-              if (app.icon != null)
-                Image.memory(app.icon!, width: 96, height: 96)
+              if (app.iconBytes != null)
+                Image.memory(app.iconBytes!, width: 96, height: 96)
               else
                 const Icon(Icons.android, size: 96, color: Colors.white),
               const SizedBox(height: 16),
               Text(
-                app.appName,
+                app.appName ?? 'Aplicativo',
                 style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
