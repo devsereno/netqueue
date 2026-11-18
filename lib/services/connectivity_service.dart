@@ -11,10 +11,16 @@ class ConnectivityService {
   static DateTime? lastOfflineTime;
   static StreamSubscription<List<ConnectivityResult>>? _subscription;
 
+  static final _autoTriggerController = StreamController<void>.broadcast();
+  static Stream<void> get onAutoTrigger => _autoTriggerController.stream;
+
   static const String _offlineKey = 'last_offline_time';
   static const String _testActiveKey = 'test_mode_active';
   static const String _testMinutesKey = 'test_minutes';
+  static const String _autoEnabledKey = 'auto_control_enabled';
   static const int defaultOfflineHours = 2;
+
+  static bool autoControlEnabled = true;
 
   static Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
@@ -22,15 +28,21 @@ class ConnectivityService {
     if (saved != null) {
       lastOfflineTime = DateTime.tryParse(saved);
     }
+    autoControlEnabled = _prefs.getBool(_autoEnabledKey) ?? true;
     _startListening();
   }
 
   static void _startListening() {
-    _subscription = Connectivity().onConnectivityChanged.listen((results) {
+    _subscription = Connectivity().onConnectivityChanged.listen((results) async {
       final hasConnection = results.any((r) => r != ConnectivityResult.none);
       if (!hasConnection) {
         lastOfflineTime = DateTime.now();
-        _prefs.setString(_offlineKey, lastOfflineTime!.toIso8601String());
+        await _prefs.setString(_offlineKey, lastOfflineTime!.toIso8601String());
+      } else {
+        // Internet voltou — verifica se deve disparar automaticamente
+        if (autoControlEnabled && await shouldActivateControl()) {
+          _autoTriggerController.add(null);
+        }
       }
     });
   }
@@ -47,6 +59,11 @@ class ConnectivityService {
   static Future<void> cancelTestMode() async {
     await _prefs.setBool(_testActiveKey, false);
     await _prefs.remove(_testMinutesKey);
+  }
+
+  static Future<void> setAutoControlEnabled(bool enabled) async {
+    autoControlEnabled = enabled;
+    await _prefs.setBool(_autoEnabledKey, enabled);
   }
 
   static Future<bool> shouldActivateControl() async {
@@ -85,5 +102,6 @@ class ConnectivityService {
 
   static void dispose() {
     _subscription?.cancel();
+    _autoTriggerController.close();
   }
 }
