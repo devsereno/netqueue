@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/connectivity_service.dart';
+import '../services/vpn_service.dart';
 import 'control_overlay.dart';
 import 'settings_screen.dart';
 
@@ -70,6 +71,15 @@ class _HomeScreenState extends State<HomeScreen> {
         ConnectivityService.markOnlineHandled();
         _checkStatus();
       });
+    }
+  }
+
+  Future<void> _stopVpn() async {
+    await VpnController.stop();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('VPN desligada. Internet liberada para todos os apps.')),
+      );
     }
   }
 
@@ -166,6 +176,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 icon: const Icon(Icons.play_arrow),
                 label: const Text('Iniciar controle de fila agora'),
               ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _stopVpn,
+              icon: const Icon(Icons.vpn_key_off),
+              label: const Text('Desligar VPN agora'),
+              style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+            ),
             const SizedBox(height: 16),
             OutlinedButton(
               onPressed: _checkStatus,
