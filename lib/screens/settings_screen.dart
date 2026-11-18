@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/connectivity_service.dart';
+import '../services/vpn_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -83,6 +84,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _stopVpn() async {
+    await VpnController.stop();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('VPN desligada. Internet liberada.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -132,6 +142,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           FilledButton(
             onPressed: _save,
             child: const Text('Salvar configurações'),
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: _stopVpn,
+            icon: const Icon(Icons.vpn_key_off),
+            label: const Text('Desligar VPN agora'),
+            style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
           ),
           const Divider(height: 48),
           const Text('Modo de teste', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
