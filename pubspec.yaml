@@ -1,7 +1,7 @@
 name: netqueue
 description: App que controla a fila de acesso à internet após longo período offline para evitar travamentos.
 publish_to: 'none'
-version: 1.0.1+2
+version: 1.0.2+3
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -14,6 +14,7 @@ dependencies:
   flutter_device_apps: ^1.1.0
   permission_handler: ^11.3.1
   flutter_foreground_task: ^8.10.1
+  flutter_vpn_service: ^1.1.0
 
 dev_dependencies:
   flutter_test:
