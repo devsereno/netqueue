@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:device_apps/device_apps.dart';
+import 'package:flutter_device_apps/flutter_device_apps.dart';
 import '../services/connectivity_service.dart';
 
 class ControlOverlay extends StatefulWidget {
@@ -11,7 +11,7 @@ class ControlOverlay extends StatefulWidget {
 }
 
 class _ControlOverlayState extends State<ControlOverlay> {
-  List<Application> apps = [];
+  List<AppInfo> apps = [];
   int currentIndex = 0;
   double progress = 0.0;
   Timer? _timer;
@@ -24,10 +24,10 @@ class _ControlOverlayState extends State<ControlOverlay> {
   }
 
   Future<void> _loadApps() async {
-    final list = await DeviceApps.getInstalledApplications(
-      includeAppIcons: true,
-      includeSystemApps: false,
-      onlyAppsWithLaunchIntent: true,
+    final list = await FlutterDeviceApps.listApps(
+      includeSystem: false,
+      onlyLaunchable: true,
+      includeIcons: true,
     );
     list.shuffle();
     setState(() {
@@ -106,8 +106,8 @@ class _ControlOverlayState extends State<ControlOverlay> {
             ),
             const Spacer(),
             if (app != null) ...[
-              if (app is ApplicationWithIcon)
-                Image.memory(app.icon, width: 96, height: 96)
+              if (app.icon != null)
+                Image.memory(app.icon!, width: 96, height: 96)
               else
                 const Icon(Icons.android, size: 96, color: Colors.white),
               const SizedBox(height: 16),
