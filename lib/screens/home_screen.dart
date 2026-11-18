@@ -15,17 +15,24 @@ class _HomeScreenState extends State<HomeScreen> {
   String status = 'Monitorando conexão...';
   bool controlActive = false;
   Timer? _refreshTimer;
+  StreamSubscription<void>? _autoSub;
 
   @override
   void initState() {
     super.initState();
     _checkStatus();
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) => _checkStatus());
+    _autoSub = ConnectivityService.onAutoTrigger.listen((_) {
+      if (!controlActive && mounted) {
+        _startControl(auto: true);
+      }
+    });
   }
 
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _autoSub?.cancel();
     super.dispose();
   }
 
@@ -34,15 +41,16 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) {
       setState(() {
         status = should
-            ? 'Condição atingida! Pronto para controlar a fila.'
+            ? 'Condição atingida. Aguardando internet para iniciar automaticamente.'
             : 'Aguardando período offline suficiente.';
       });
     }
   }
 
-  void _startControl() async {
+  void _startControl({bool auto = false}) async {
+    if (controlActive) return;
     final should = await ConnectivityService.shouldActivateControl();
-    if (!should) {
+    if (!should && !auto) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Ainda não passou tempo offline suficiente.')),
       );
@@ -56,7 +64,9 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (_) => const ControlOverlay(),
         ),
       ).then((_) {
-        setState(() => controlActive = false);
+        if (mounted) {
+          setState(() => controlActive = false);
+        }
         ConnectivityService.markOnlineHandled();
         _checkStatus();
       });
@@ -129,23 +139,33 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 8),
                     LinearProgressIndicator(value: progress),
                     const SizedBox(height: 8),
-                    Text(reached ? 'Período atingido. Aguardando internet.' : 'Aguardando período mínimo...'),
+                    Text(reached
+                        ? 'Período atingido. Aguardando internet para iniciar automaticamente.'
+                        : 'Aguardando período mínimo...'),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 16),
             const Text(
-              'Este app monitora quando a internet fica desligada por um tempo longo. '
-              'Quando você liga a internet de novo, ele pode criar uma fila controlada '
-              'para os apps acessarem a rede sem travar o celular.',
+              'O sistema inicia a fila automaticamente assim que o tempo offline for atingido e a internet voltar. Não é preciso apertar nenhum botão.',
             ),
             const Spacer(),
-            FilledButton.icon(
-              onPressed: controlActive ? null : _startControl,
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('Iniciar controle de fila agora'),
-            ),
+            if (controlActive)
+              OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                  setState(() => controlActive = false);
+                },
+                icon: const Icon(Icons.stop),
+                label: const Text('Parar operação'),
+              )
+            else
+              FilledButton.icon(
+                onPressed: () => _startControl(auto: false),
+                icon: const Icon(Icons.play_arrow),
+                label: const Text('Iniciar controle de fila agora'),
+              ),
             const SizedBox(height: 16),
             OutlinedButton(
               onPressed: _checkStatus,
