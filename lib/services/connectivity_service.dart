@@ -12,6 +12,8 @@ class ConnectivityService {
   static StreamSubscription<List<ConnectivityResult>>? _subscription;
 
   static const String _offlineKey = 'last_offline_time';
+  static const String _testActiveKey = 'test_mode_active';
+  static const String _testMinutesKey = 'test_minutes';
   static const int defaultOfflineHours = 2;
 
   static Future<void> init() async {
@@ -33,16 +35,52 @@ class ConnectivityService {
     });
   }
 
+  static bool get isTestModeActive => _prefs.getBool(_testActiveKey) ?? false;
+
+  static int get testMinutes => _prefs.getInt(_testMinutesKey) ?? 10;
+
+  static Future<void> startTestMode(int minutes) async {
+    await _prefs.setBool(_testActiveKey, true);
+    await _prefs.setInt(_testMinutesKey, minutes);
+  }
+
+  static Future<void> cancelTestMode() async {
+    await _prefs.setBool(_testActiveKey, false);
+    await _prefs.remove(_testMinutesKey);
+  }
+
   static Future<bool> shouldActivateControl() async {
     if (lastOfflineTime == null) return false;
+
+    if (isTestModeActive) {
+      final threshold = Duration(minutes: testMinutes);
+      return DateTime.now().difference(lastOfflineTime!) >= threshold;
+    }
+
     final hours = _prefs.getInt('offline_hours') ?? defaultOfflineHours;
     final threshold = Duration(hours: hours);
     return DateTime.now().difference(lastOfflineTime!) >= threshold;
   }
 
+  static Duration get requiredOfflineDuration {
+    if (isTestModeActive) {
+      return Duration(minutes: testMinutes);
+    }
+    final hours = _prefs.getInt('offline_hours') ?? defaultOfflineHours;
+    return Duration(hours: hours);
+  }
+
+  static Duration get currentOfflineDuration {
+    if (lastOfflineTime == null) return Duration.zero;
+    return DateTime.now().difference(lastOfflineTime!);
+  }
+
   static Future<void> markOnlineHandled() async {
     lastOfflineTime = null;
     await _prefs.remove(_offlineKey);
+    if (isTestModeActive) {
+      await cancelTestMode();
+    }
   }
 
   static void dispose() {
