@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../services/connectivity_service.dart';
 import '../services/vpn_service.dart';
 import '../services/app_list_service.dart';
@@ -26,12 +27,17 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _checkStatus();
     _prepareVpnAndCache();
+    _requestNotificationPermission();
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) => _checkStatus());
     _autoSub = ConnectivityService.onAutoTrigger.listen((_) {
       if (!controlActive && mounted) {
         _startControl(auto: true);
       }
     });
+  }
+
+  Future<void> _requestNotificationPermission() async {
+    await Permission.notification.request();
   }
 
   Future<void> _prepareVpnAndCache() async {
