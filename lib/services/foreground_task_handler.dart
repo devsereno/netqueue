@@ -1,4 +1,5 @@
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'connectivity_service.dart';
 
 @pragma('vm:entry-point')
@@ -14,9 +15,11 @@ class NetQueueTaskHandler extends TaskHandler {
 
   @override
   void onRepeatEvent(DateTime timestamp) async {
+    final results = await Connectivity().checkConnectivity();
+    final hasConnection = results.any((r) => r != ConnectivityResult.none);
     final should = await ConnectivityService.shouldActivateControl();
-    if (should && ConnectivityService.autoControlEnabled) {
-      // Tenta trazer o app para a frente
+
+    if (hasConnection && should && ConnectivityService.autoControlEnabled) {
       FlutterForegroundTask.launchApp();
     }
   }
