@@ -8,10 +8,13 @@ import android.content.pm.ServiceInfo
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
+import java.io.FileInputStream
+import kotlin.concurrent.thread
 import androidx.core.app.NotificationCompat
 
 class NetQueueVpnService : VpnService() {
     private var vpnInterface: ParcelFileDescriptor? = null
+    @Volatile private var generation = 0
 
     companion object {
         const val ACTION_START = "com.example.netqueue.START_VPN"
@@ -32,16 +35,16 @@ class NetQueueVpnService : VpnService() {
                 stopSelf()
             }
         }
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     private fun startVpn(allowedPackages: List<String>) {
-        if (vpnInterface != null) return
+        // A cada app, reconfigurar a VPN: o selecionado sai do túnel.
 
         createNotificationChannel()
 
         val notification = createNotification()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (Build.VERSION.SDK_INT >= 34) {
             startForeground(
                 NOTIFICATION_ID,
                 notification,
@@ -53,24 +56,41 @@ class NetQueueVpnService : VpnService() {
 
         val builder = Builder()
             .setSession("NetQueue")
-            .addAddress("10.0.0.2", 24)
+            .addAddress("10.222.0.1", 30)
+            .addAddress("fd42:2222::1", 126)
             .addRoute("0.0.0.0", 0)
+            .addRoute("::", 0)
             .addDnsServer("8.8.8.8")
-            .setBlocking(false)
+            .setBlocking(true)
 
         for (pkg in allowedPackages) {
             try {
-                builder.addAllowedApplication(pkg)
+                builder.addDisallowedApplication(pkg)
             } catch (_: Exception) {}
         }
         try {
-            builder.addAllowedApplication(packageName)
+            builder.addDisallowedApplication(packageName)
         } catch (_: Exception) {}
 
-        vpnInterface = builder.establish()
+        val newTun = builder.establish() ?: throw IllegalStateException("VPN indisponível")
+        val previous = vpnInterface
+        vpnInterface = newTun
+        val current = ++generation
+        previous?.close()
+        // O túnel é um sumidouro: os apps NÃO selecionados ficam sem rede.
+        // O selecionado usa a conexão Android diretamente, fora da VPN.
+        thread(name = "FluxNetDrop-$current", isDaemon = true) {
+            try {
+                FileInputStream(newTun.fileDescriptor).use { input ->
+                    val buffer = ByteArray(32767)
+                    while (generation == current && input.read(buffer) >= 0) { /* descartar */ }
+                }
+            } catch (_: Exception) { /* troca ou encerramento */ }
+        }
     }
 
     private fun stopVpn() {
+        generation++
         vpnInterface?.close()
         vpnInterface = null
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -95,6 +115,12 @@ class NetQueueVpnService : VpnService() {
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setOngoing(true)
             .build()
+    }
+
+    override fun onRevoke() {
+        stopVpn()
+        stopSelf()
+        super.onRevoke()
     }
 
     override fun onDestroy() {
