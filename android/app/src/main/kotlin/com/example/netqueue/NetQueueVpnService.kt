@@ -4,6 +4,7 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
@@ -38,7 +39,17 @@ class NetQueueVpnService : VpnService() {
         if (vpnInterface != null) return
 
         createNotificationChannel()
-        startForeground(NOTIFICATION_ID, createNotification())
+
+        val notification = createNotification()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_VPN
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
 
         val builder = Builder()
             .setSession("NetQueue")
@@ -47,7 +58,6 @@ class NetQueueVpnService : VpnService() {
             .addDnsServer("8.8.8.8")
             .setBlocking(false)
 
-        // Permite apenas os apps liberados na fila + o próprio app
         for (pkg in allowedPackages) {
             try {
                 builder.addAllowedApplication(pkg)
