@@ -47,8 +47,12 @@ class ConnectivityService {
           await _prefs.setString(_offlineKey, lastOfflineTime!.toIso8601String());
         }
       } else {
-        if (autoControlEnabled && await shouldActivateControl()) {
-          _autoTriggerController.add(null);
+        if (lastOfflineTime != null) {
+          if (autoControlEnabled && await shouldActivateControl()) {
+            _autoTriggerController.add(null);
+          } else {
+            await markOnlineHandled();
+          }
         }
       }
     });
