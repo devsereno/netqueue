@@ -27,11 +27,11 @@ Future<void> _initForegroundService() async {
       playSound: false,
     ),
     foregroundTaskOptions: ForegroundTaskOptions(
-      eventAction: ForegroundTaskEventAction.repeat(5000),
+      eventAction: ForegroundTaskEventAction.repeat(30000),
       autoRunOnBoot: true,
       autoRunOnMyPackageReplaced: true,
-      allowWakeLock: true,
-      allowWifiLock: true,
+      allowWakeLock: false,
+      allowWifiLock: false,
     ),
   );
 
