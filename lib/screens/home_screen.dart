@@ -28,7 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _checkStatus();
     _prepareVpnAndCache();
     _requestNotificationPermission();
-    _refreshTimer = Timer.periodic(const Duration(seconds: 2), (_) => _checkStatus());
+    _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) => _checkStatus());
     _autoSub = ConnectivityService.onAutoTrigger.listen((_) {
       if (!controlActive && mounted) {
         _startControl(auto: true);
