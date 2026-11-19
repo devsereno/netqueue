@@ -1,6 +1,8 @@
 package com.example.netqueue
 
 import android.content.Intent
+import android.app.Activity
+import android.os.Build
 import android.net.VpnService
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -9,6 +11,16 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.example.netqueue/vpn"
     private val VPN_REQUEST_CODE = 100
+    private var pendingPermission: MethodChannel.Result? = null
+
+    @Deprecated("Android activity result compatibility")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == VPN_REQUEST_CODE) {
+            pendingPermission?.success(resultCode == Activity.RESULT_OK)
+            pendingPermission = null
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -17,8 +29,8 @@ class MainActivity: FlutterActivity() {
                 "prepareVpn" -> {
                     val intent = VpnService.prepare(this)
                     if (intent != null) {
+                        pendingPermission = result
                         startActivityForResult(intent, VPN_REQUEST_CODE)
-                        result.success(false)
                     } else {
                         result.success(true)
                     }
@@ -29,7 +41,7 @@ class MainActivity: FlutterActivity() {
                         action = NetQueueVpnService.ACTION_START
                         putStringArrayListExtra(NetQueueVpnService.EXTRA_ALLOWED_APPS, ArrayList(packages))
                     }
-                    startService(intent)
+                    if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent) else startService(intent)
                     result.success(true)
                 }
                 "stopVpn" -> {
