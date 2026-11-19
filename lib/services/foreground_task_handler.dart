@@ -23,21 +23,38 @@ class NetQueueTaskHandler extends TaskHandler {
     final saved = prefs.getString('last_offline_time');
     DateTime? offlineTime = saved != null ? DateTime.tryParse(saved) : null;
 
+    String notifText = 'Monitorando conexão...';
+
     if (!hasConnection) {
       if (offlineTime == null) {
         final now = DateTime.now();
         await prefs.setString('last_offline_time', now.toIso8601String());
         ConnectivityService.lastOfflineTime = now;
+        offlineTime = now;
       }
+      final elapsed = DateTime.now().difference(offlineTime!);
+      final min = elapsed.inMinutes;
+      final sec = elapsed.inSeconds.remainder(60);
+      notifText = 'Offline: ${min}min ${sec}s';
     } else {
       if (offlineTime != null) {
         final required = ConnectivityService.requiredOfflineDuration;
         final elapsed = DateTime.now().difference(offlineTime);
         if (elapsed >= required && ConnectivityService.autoControlEnabled) {
           FlutterForegroundTask.launchApp();
+          notifText = 'Condição atingida. Abrindo fila...';
+        } else {
+          notifText = 'Online. Aguardando tempo offline.';
         }
+      } else {
+        notifText = 'Online. Monitorando...';
       }
     }
+
+    FlutterForegroundTask.updateService(
+      notificationTitle: 'NetQueue ativo',
+      notificationText: notifText,
+    );
   }
 
   @override
