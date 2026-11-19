@@ -72,7 +72,18 @@ class NetQueueVpnService : VpnService() {
             builder.addDisallowedApplication(packageName)
         } catch (_: Exception) {}
 
-        val newTun = builder.establish() ?: throw IllegalStateException("VPN indisponível")
+        val newTun = try {
+            builder.establish()
+        } catch (e: Exception) {
+            android.util.Log.e("FluxNetVPN", "Falha ao criar VPN", e)
+            stopVpn()
+            stopSelf()
+            return
+        } ?: run {
+            stopVpn()
+            stopSelf()
+            return
+        }
         val previous = vpnInterface
         vpnInterface = newTun
         val current = ++generation
