@@ -27,16 +27,22 @@ class _ControlOverlayState extends State<ControlOverlay> {
 
   Future<void> _init() async {
     vpnReady = await VpnController.prepare();
+    if (!mounted) return;
+    if (!vpnReady) {
+      Navigator.of(context).pop();
+      return;
+    }
     final cached = await AppListService.getCachedOrLoad();
-    cached.shuffle();
     setState(() {
-      apps = cached.take(10).toList();
+      apps = cached.toList();
       loading = false;
     });
     if (apps.isNotEmpty) {
       await _updateVpnForCurrent();
+      if (mounted) _startProgress();
+    } else {
+      await _finish();
     }
-    _startProgress();
   }
 
   Future<void> _updateVpnForCurrent() async {
@@ -84,7 +90,7 @@ class _ControlOverlayState extends State<ControlOverlay> {
 
   Future<void> _finish() async {
     await VpnController.stop();
-    ConnectivityService.markOnlineHandled();
+    await ConnectivityService.markOnlineHandled();
     if (mounted) Navigator.of(context).pop();
   }
 
