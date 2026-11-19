@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_device_apps/flutter_device_apps.dart';
 import '../services/connectivity_service.dart';
 import '../services/vpn_service.dart';
+import '../services/app_list_service.dart';
 
 class ControlOverlay extends StatefulWidget {
   const ControlOverlay({super.key});
@@ -12,7 +12,7 @@ class ControlOverlay extends StatefulWidget {
 }
 
 class _ControlOverlayState extends State<ControlOverlay> {
-  List<AppInfo> apps = [];
+  List<Map<String, String>> apps = [];
   int currentIndex = 0;
   double progress = 0.0;
   Timer? _timer;
@@ -27,18 +27,10 @@ class _ControlOverlayState extends State<ControlOverlay> {
 
   Future<void> _init() async {
     vpnReady = await VpnController.prepare();
-    await _loadApps();
-  }
-
-  Future<void> _loadApps() async {
-    final list = await FlutterDeviceApps.listApps(
-      includeSystem: false,
-      onlyLaunchable: true,
-      includeIcons: true,
-    );
-    list.shuffle();
+    final cached = await AppListService.getCachedOrLoad();
+    cached.shuffle();
     setState(() {
-      apps = list.take(8).toList();
+      apps = cached.take(10).toList();
       loading = false;
     });
     if (apps.isNotEmpty) {
@@ -48,11 +40,15 @@ class _ControlOverlayState extends State<ControlOverlay> {
   }
 
   Future<void> _updateVpnForCurrent() async {
-    if (!vpnReady || apps.isEmpty) return;
+    if (apps.isEmpty) return;
     final current = apps[currentIndex];
-    final pkg = current.packageName;
+    final pkg = current['package'];
+    final name = current['name'] ?? 'App';
     if (pkg != null) {
-      await VpnController.start([pkg]);
+      if (vpnReady) {
+        await VpnController.start([pkg]);
+      }
+      await AppListService.addToHistory(name, pkg);
     }
   }
 
@@ -128,13 +124,10 @@ class _ControlOverlayState extends State<ControlOverlay> {
             ),
             const Spacer(),
             if (app != null) ...[
-              if (app.iconBytes != null)
-                Image.memory(app.iconBytes!, width: 96, height: 96)
-              else
-                const Icon(Icons.android, size: 96, color: Colors.white),
+              const Icon(Icons.android, size: 96, color: Colors.white),
               const SizedBox(height: 16),
               Text(
-                app.appName ?? 'Aplicativo',
+                app['name'] ?? 'Aplicativo',
                 style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
