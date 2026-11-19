@@ -28,7 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _checkStatus();
     _prepareVpnAndCache();
     _requestNotificationPermission();
-    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) => _checkStatus());
+    _refreshTimer = Timer.periodic(const Duration(seconds: 2), (_) => _checkStatus());
     _autoSub = ConnectivityService.onAutoTrigger.listen((_) {
       if (!controlActive && mounted) {
         _startControl(auto: true);
@@ -54,6 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _checkStatus() async {
+    await ConnectivityService.reloadFromPrefs();
     final should = await ConnectivityService.shouldActivateControl();
     if (mounted) {
       setState(() {
@@ -193,7 +194,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 16),
             const Text(
-              'O sistema inicia a fila automaticamente assim que o tempo offline for atingido e a internet voltar. Não é preciso apertar nenhum botão.',
+              'A contagem continua em segundo plano. Quando você abrir o app, ele mostra o tempo que já passou.',
             ),
             const Spacer(),
             if (!vpnPrepared)
