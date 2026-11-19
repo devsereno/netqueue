@@ -1,12 +1,38 @@
 workflows:
-  netqueue-android:
+  android-apk:
     name: NetQueue Android APK
+    max_build_duration: 30
     instance_type: mac_mini_m2
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
     environment:
       flutter: stable
+    cache:
+      cache_paths:
+        - $FLUTTER_ROOT/.pub-cache
+        - $HOME/.gradle/caches
     scripts:
+      - name: Validar projeto Flutter
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          test -f pubspec.yaml
+          flutter --version
+      - name: Pacotes Flutter
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          flutter pub get
       - name: APK release
         script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
           flutter build apk --release
+          ls -lh build/app/outputs/flutter-apk/app-release.apk
     artifacts:
       - build/app/outputs/flutter-apk/*.apk
