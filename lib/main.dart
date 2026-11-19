@@ -20,14 +20,14 @@ Future<void> _initForegroundService() async {
       channelDescription: 'Monitoramento de conexão e fila de apps',
       channelImportance: NotificationChannelImportance.HIGH,
       priority: NotificationPriority.HIGH,
-      onlyAlertOnce: false,
+      onlyAlertOnce: true,
     ),
     iosNotificationOptions: const IOSNotificationOptions(
       showNotification: false,
       playSound: false,
     ),
     foregroundTaskOptions: ForegroundTaskOptions(
-      eventAction: ForegroundTaskEventAction.repeat(8000),
+      eventAction: ForegroundTaskEventAction.repeat(5000),
       autoRunOnBoot: true,
       autoRunOnMyPackageReplaced: true,
       allowWakeLock: true,
@@ -35,11 +35,15 @@ Future<void> _initForegroundService() async {
     ),
   );
 
-  await FlutterForegroundTask.startService(
-    notificationTitle: 'NetQueue ativo',
-    notificationText: 'Monitorando conexão em segundo plano',
-    callback: startCallback,
-  );
+  if (await FlutterForegroundTask.isRunningService) {
+    await FlutterForegroundTask.restartService();
+  } else {
+    await FlutterForegroundTask.startService(
+      notificationTitle: 'NetQueue ativo',
+      notificationText: 'Monitorando conexão em segundo plano',
+      callback: startCallback,
+    );
+  }
 }
 
 class NetQueueApp extends StatelessWidget {
