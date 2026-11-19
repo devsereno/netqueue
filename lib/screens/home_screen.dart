@@ -26,7 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _checkStatus();
-    _prepareVpnAndCache();
+    AppListService.refresh();
     _requestNotificationPermission();
     _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) => _checkStatus());
     _autoSub = ConnectivityService.onAutoTrigger.listen((_) {
@@ -42,7 +42,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _prepareVpnAndCache() async {
     final prepared = await VpnController.prepare();
-    AppListService.refresh();
     if (mounted) setState(() => vpnPrepared = prepared);
   }
 
@@ -73,6 +72,18 @@ class _HomeScreenState extends State<HomeScreen> {
         const SnackBar(content: Text('Ainda não passou tempo offline suficiente.')),
       );
       return;
+    }
+    if (!mounted) return;
+    if (!vpnPrepared) {
+      final authorized = await VpnController.prepare();
+      if (!mounted) return;
+      setState(() => vpnPrepared = authorized);
+      if (!authorized) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Autorize a VPN para controlar a fila.')),
+        );
+        return;
+      }
     }
     setState(() => controlActive = true);
     if (mounted) {
