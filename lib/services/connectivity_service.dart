@@ -24,22 +24,29 @@ class ConnectivityService {
 
   static Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
+    await reloadFromPrefs();
+    autoControlEnabled = _prefs.getBool(_autoEnabledKey) ?? true;
+    _startListening();
+  }
+
+  static Future<void> reloadFromPrefs() async {
     final saved = _prefs.getString(_offlineKey);
     if (saved != null) {
       lastOfflineTime = DateTime.tryParse(saved);
+    } else {
+      lastOfflineTime = null;
     }
-    autoControlEnabled = _prefs.getBool(_autoEnabledKey) ?? true;
-    _startListening();
   }
 
   static void _startListening() {
     _subscription = Connectivity().onConnectivityChanged.listen((results) async {
       final hasConnection = results.any((r) => r != ConnectivityResult.none);
       if (!hasConnection) {
-        lastOfflineTime = DateTime.now();
-        await _prefs.setString(_offlineKey, lastOfflineTime!.toIso8601String());
+        if (lastOfflineTime == null) {
+          lastOfflineTime = DateTime.now();
+          await _prefs.setString(_offlineKey, lastOfflineTime!.toIso8601String());
+        }
       } else {
-        // Internet voltou — verifica se deve disparar automaticamente
         if (autoControlEnabled && await shouldActivateControl()) {
           _autoTriggerController.add(null);
         }
@@ -67,6 +74,7 @@ class ConnectivityService {
   }
 
   static Future<bool> shouldActivateControl() async {
+    await reloadFromPrefs();
     if (lastOfflineTime == null) return false;
 
     if (isTestModeActive) {
