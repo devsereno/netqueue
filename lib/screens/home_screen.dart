@@ -2,8 +2,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/connectivity_service.dart';
 import '../services/vpn_service.dart';
+import '../services/app_list_service.dart';
 import 'control_overlay.dart';
 import 'settings_screen.dart';
+import 'history_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,6 +17,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   String status = 'Monitorando conexão...';
   bool controlActive = false;
+  bool vpnPrepared = false;
   Timer? _refreshTimer;
   StreamSubscription<void>? _autoSub;
 
@@ -22,12 +25,19 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _checkStatus();
+    _prepareVpnAndCache();
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) => _checkStatus());
     _autoSub = ConnectivityService.onAutoTrigger.listen((_) {
       if (!controlActive && mounted) {
         _startControl(auto: true);
       }
     });
+  }
+
+  Future<void> _prepareVpnAndCache() async {
+    final prepared = await VpnController.prepare();
+    AppListService.refresh();
+    if (mounted) setState(() => vpnPrepared = prepared);
   }
 
   @override
@@ -105,6 +115,13 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('NetQueue'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.history),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const HistoryScreen()),
+            ),
+          ),
+          IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () => Navigator.push(
               context,
@@ -129,6 +146,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Text(
                     isTest ? 'MODO TESTE' : 'MODO NORMAL',
                     style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: vpnPrepared ? Colors.green : Colors.grey,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    vpnPrepared ? 'VPN pronta' : 'VPN não autorizada',
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
                 ),
               ],
@@ -161,6 +190,13 @@ class _HomeScreenState extends State<HomeScreen> {
               'O sistema inicia a fila automaticamente assim que o tempo offline for atingido e a internet voltar. Não é preciso apertar nenhum botão.',
             ),
             const Spacer(),
+            if (!vpnPrepared)
+              FilledButton.icon(
+                onPressed: _prepareVpnAndCache,
+                icon: const Icon(Icons.vpn_key),
+                label: const Text('Autorizar VPN'),
+              ),
+            const SizedBox(height: 12),
             if (controlActive)
               OutlinedButton.icon(
                 onPressed: () {
