@@ -21,7 +21,7 @@ class AppListService {
   static Future<List<Map<String, String>>> refresh() async {
     final apps = await FlutterDeviceApps.listApps(
       includeSystem: false,
-      onlyLaunchable: true,
+      onlyLaunchable: false,
       includeIcons: false,
     );
     final simple = apps
@@ -31,6 +31,10 @@ class AppListService {
               'name': a.appName!,
             })
         .toList();
+    simple.removeWhere((app) => app['package'] == 'com.example.netqueue');
+    final seen = <String>{};
+    simple.removeWhere((app) => !seen.add(app['package']!));
+    simple.sort((a, b) => a['name']!.toLowerCase().compareTo(b['name']!.toLowerCase()));
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_key, jsonEncode(simple));
