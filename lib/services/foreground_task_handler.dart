@@ -20,18 +20,22 @@ class NetQueueTaskHandler extends TaskHandler {
     final results = await Connectivity().checkConnectivity();
     final hasConnection = results.any((r) => r != ConnectivityResult.none);
 
+    final saved = prefs.getString('last_offline_time');
+    DateTime? offlineTime = saved != null ? DateTime.tryParse(saved) : null;
+
     if (!hasConnection) {
-      // Sem internet: garante que o tempo offline está sendo contado
-      if (ConnectivityService.lastOfflineTime == null) {
+      if (offlineTime == null) {
         final now = DateTime.now();
-        ConnectivityService.lastOfflineTime = now;
         await prefs.setString('last_offline_time', now.toIso8601String());
+        ConnectivityService.lastOfflineTime = now;
       }
     } else {
-      // Internet voltou: verifica se o tempo mínimo foi atingido
-      final should = await ConnectivityService.shouldActivateControl();
-      if (should && ConnectivityService.autoControlEnabled) {
-        FlutterForegroundTask.launchApp();
+      if (offlineTime != null) {
+        final required = ConnectivityService.requiredOfflineDuration;
+        final elapsed = DateTime.now().difference(offlineTime);
+        if (elapsed >= required && ConnectivityService.autoControlEnabled) {
+          FlutterForegroundTask.launchApp();
+        }
       }
     }
   }
