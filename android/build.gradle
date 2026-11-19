@@ -16,3 +16,13 @@ allprojects {
         mavenCentral()
     }
 }
+
+// Flutter expects APK outputs under the repository-level build directory.
+rootProject.buildDir = '../build'
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+    project.evaluationDependsOn(':app')
+}
+tasks.register('clean', Delete) {
+    delete rootProject.buildDir
+}
