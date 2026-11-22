@@ -1,199 +1,71 @@
-import "package:flutter/material.dart";
+import 'package:flutter/material.dart';
+import 'dart:async';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'screens/home_screen.dart';
+import 'services/connectivity_service.dart';
+import 'services/foreground_task_handler.dart';
+import 'services/flux_policy.dart';
 
-import "device_bridge.dart";
-import "history_store.dart";
-import "settings_store.dart";
-import "ui/brand_mark.dart";
-import "ui/copy_page.dart";
-import "ui/history_page.dart";
-import "ui/originals_page.dart";
-import "ui/settings_page.dart";
-import "ui/splash_page.dart";
-import "ui/sync_page.dart";
-
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const SincroApp());
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    unawaited(FluxPolicy.event('flutter_error', {'message': details.exceptionAsString().substring(0, details.exceptionAsString().length.clamp(0, 250))}));
+  };
+  FlutterForegroundTask.initCommunicationPort();
+  await ConnectivityService.init();
+  await FluxPolicy.schedule();
+  if (await FluxPolicy.canRun()) await initForegroundService();
+  runApp(const NetQueueApp());
 }
 
-class SincroApp extends StatefulWidget {
-  const SincroApp({super.key});
-
-  @override
-  State<SincroApp> createState() => _SincroAppState();
-}
-
-class _SincroAppState extends State<SincroApp> {
-  SettingsStore? settings;
-  final history = HistoryStore();
-  bool _splashDone = false;
-
-  @override
-  void initState() {
-    super.initState();
-    SettingsStore.load().then((value) {
-      if (mounted) setState(() => settings = value);
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      DeviceBridge.requestMediaAccess();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final loaded = settings;
-    return MaterialApp(
-      title: "SincroLocal",
-      debugShowCheckedModeBanner: false,
-      themeMode: ThemeMode.system,
-      theme: _theme(Brightness.light),
-      darkTheme: _theme(Brightness.dark),
-      home: loaded == null || !_splashDone
-          ? SplashPage(onDone: () => setState(() => _splashDone = true), onAbout: () {})
-          : HomePage(settings: loaded, history: history),
-    );
-  }
-}
-
-ThemeData _theme(Brightness brightness) {
-  final scheme = ColorScheme.fromSeed(seedColor: const Color(0xFF1F8A57), brightness: brightness);
-  return ThemeData(
-    colorScheme: scheme,
-    useMaterial3: true,
-    filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        minimumSize: const Size.fromHeight(52),
-        textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-      ),
+Future<void> initForegroundService() async {
+  FlutterForegroundTask.init(
+    androidNotificationOptions: AndroidNotificationOptions(
+      channelId: 'netqueue_monitor',
+      channelName: 'NetQueue Monitor',
+      channelDescription: 'Monitoramento de conexão e fila de apps',
+      channelImportance: NotificationChannelImportance.HIGH,
+      priority: NotificationPriority.HIGH,
+      onlyAlertOnce: true,
+    ),
+    iosNotificationOptions: const IOSNotificationOptions(
+      showNotification: false,
+      playSound: false,
+    ),
+    foregroundTaskOptions: ForegroundTaskOptions(
+      eventAction: ForegroundTaskEventAction.repeat(30000),
+      autoRunOnBoot: true,
+      autoRunOnMyPackageReplaced: true,
+      allowWakeLock: false,
+      allowWifiLock: false,
     ),
   );
-}
 
-class HomePage extends StatelessWidget {
-  const HomePage({super.key, required this.settings, required this.history});
-
-  final SettingsStore settings;
-  final HistoryStore history;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("SincroLocal"),
-        actions: [
-          IconButton(
-            tooltip: "Ajustes",
-            onPressed: () {
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => SettingsPage(settings: settings)));
-            },
-            icon: const Icon(Icons.settings),
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          Row(
-            children: [
-              const BrandMark(size: 72),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Text(
-                  "Sem nuvem. Os arquivos ficam neste aparelho ou vão direto para o outro, na mesma rede.",
-                  style: TextStyle(fontSize: 15, height: 1.35, color: Theme.of(context).colorScheme.onSurface),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          _Action(
-            icon: Icons.sd_card,
-            title: "Copiar para o cartão SD",
-            subtitle: "Deste aparelho. Híbrido, só SD ou só interna.",
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => CopyPage(settings: settings, history: history)),
-              );
-            },
-          ),
-          _Action(
-            icon: Icons.sync_alt,
-            title: "Sincronizar com o outro aparelho",
-            subtitle: "Quem recebe escolhe o destino e a reserva.",
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => SyncPage(settings: settings, history: history)),
-              );
-            },
-          ),
-          _Action(
-            icon: Icons.delete_outline,
-            title: "Apagar originais",
-            subtitle: "Só o que já foi confirmado 100%. Um a um ou tudo.",
-            onTap: () {
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => OriginalsPage(history: history)));
-            },
-          ),
-          _Action(
-            icon: Icons.history,
-            title: "Histórico",
-            subtitle: "Transferências concluídas ou interrompidas.",
-            onTap: () {
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => HistoryPage(history: history)));
-            },
-          ),
-        ],
-      ),
+  if (await FlutterForegroundTask.isRunningService) {
+    await FlutterForegroundTask.restartService();
+  } else {
+    await FlutterForegroundTask.startService(
+      notificationTitle: 'NetQueue ativo',
+      notificationText: 'Monitorando conexão em segundo plano',
+      callback: startCallback,
     );
   }
 }
 
-class _Action extends StatelessWidget {
-  const _Action({required this.icon, required this.title, required this.subtitle, required this.onTap});
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
+class NetQueueApp extends StatelessWidget {
+  const NetQueueApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: scheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(22),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(22),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(16)),
-                  child: Icon(icon, color: scheme.onPrimaryContainer, size: 28),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                      const SizedBox(height: 4),
-                      Text(subtitle, style: TextStyle(color: scheme.onSurfaceVariant)),
-                    ],
-                  ),
-                ),
-                Icon(Icons.chevron_right, color: scheme.primary),
-              ],
-            ),
-          ),
-        ),
+    return MaterialApp(
+      title: 'NetQueue',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.dark),
+        useMaterial3: true,
       ),
+      home: const HomeScreen(),
+      debugShowCheckedModeBanner: false,
     );
   }
 }

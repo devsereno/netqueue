@@ -1,7 +1,11 @@
-# SincroLocal
+# NetQueue
 
-Aplicativo Android. Copia arquivos da memória interna para o cartão SD deste aparelho e sincroniza com outro aparelho na mesma rede Wi-Fi. Sem nuvem.
+Aplicativo Flutter para controlar a fila de acesso à internet após longos períodos offline, evitando travamentos no Android.
 
-ID: br.sincrolocal.sincrolocal
+## Recursos
 
-O Codemagic gera o APK com flutter build apk --release.
+- Monitoramento em segundo plano
+- Fila controlada de apps
+- VPN local para bloqueio seletivo
+- Modo de teste
+- Histórico
