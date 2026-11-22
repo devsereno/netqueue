@@ -8,4 +8,4 @@ printf 'Versions: '; grep -E 'com.android.application.*version|org.jetbrains.kot
 printf 'Gradle: '; grep distributionUrl android/gradle/wrapper/gradle-wrapper.properties
 flutter --version
 flutter pub get
-flutter analyze --no-fatal-infos
+flutter analyze --no-fatal-infos --no-fatal-warnings

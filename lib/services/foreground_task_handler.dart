@@ -44,7 +44,7 @@ class NetQueueTaskHandler extends TaskHandler {
         ConnectivityService.lastOfflineTime = now;
         offlineTime = now;
       }
-      final elapsed = DateTime.now().difference(offlineTime!);
+      final elapsed = DateTime.now().difference(offlineTime);
       final min = elapsed.inMinutes;
       final sec = elapsed.inSeconds.remainder(60);
       notifText = 'Offline: ${min}min ${sec}s';
